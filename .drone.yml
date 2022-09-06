@@ -1,0 +1,90 @@
+---
+{
+   "kind": "pipeline",
+   "name": "odroid-hc4-all-buster",
+   "platform": {
+      "arch": "amd64",
+      "os": "linux"
+   },
+   "steps": [
+      {
+         "commands": [
+            "./tools/extract.sh odroid-hc4 odroid-hc4-base.img"
+         ],
+         "image": "debian:buster-slim",
+         "name": "extract",
+         "privileged": true
+      },
+      {
+         "commands": [
+            "./tools/boot.sh odroid-hc4 syncloud-odroid-hc4-22.02.img 3G"
+         ],
+         "image": "debian:buster-slim",
+         "name": "boot",
+         "privileged": true
+      },
+      {
+         "commands": [
+            "./tools/rootfs.sh odroid-hc4 arm64 syncloud-odroid-hc4-22.02.img 22.02 buster"
+         ],
+         "image": "debian:buster-slim",
+         "name": "rootfs",
+         "privileged": true
+      },
+      {
+         "commands": [
+            "./tools/zip.sh syncloud-odroid-hc4-22.02.img"
+         ],
+         "image": "debian:buster-slim",
+         "name": "zip",
+         "privileged": true
+      },
+      {
+         "image": "plugins/github-release:1.0.0",
+         "name": "publish to github",
+         "settings": {
+            "api_key": {
+               "from_secret": "github_token"
+            },
+            "file_exists": "overwrite",
+            "files": "syncloud-odroid-hc4-22.02.img*.xz",
+            "overwrite": true
+         },
+         "when": {
+            "event": [
+               "tag"
+            ]
+         }
+      },
+      {
+         "image": "appleboy/drone-scp",
+         "name": "artifact",
+         "settings": {
+            "command_timeout": "2m",
+            "host": {
+               "from_secret": "artifact_host"
+            },
+            "key": {
+               "from_secret": "artifact_key"
+            },
+            "source": "syncloud-odroid-hc4-22.02.img*.xz",
+            "target": "/home/artifact/repo/image",
+            "username": "artifact"
+         }
+      },
+      {
+         "commands": [
+            "./cleanup.sh"
+         ],
+         "image": "debian:buster-slim",
+         "name": "cleanup",
+         "privileged": true,
+         "when": {
+            "status": [
+               "failure",
+               "success"
+            ]
+         }
+      }
+   ]
+}
